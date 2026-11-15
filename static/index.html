@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Free Video Studio</title>
+<style>
+  :root { color-scheme: dark; }
+  body { font-family: system-ui, sans-serif; background: #111; color: #eee; margin: 0; padding: 24px; }
+  h1 { margin-top: 0; font-size: 22px; }
+  .row { display: flex; gap: 16px; flex-wrap: wrap; }
+  .card { background: #1b1b1b; border: 1px solid #2a2a2a; border-radius: 10px; padding: 16px; flex: 1; min-width: 320px; }
+  input, select, textarea, button { font: inherit; background: #222; color: #eee; border: 1px solid #333; border-radius: 6px; padding: 8px; }
+  textarea { width: 100%; box-sizing: border-box; min-height: 220px; font-family: ui-monospace, monospace; font-size: 12px; }
+  button { cursor: pointer; background: #2c5ef5; border: none; }
+  button.secondary { background: #333; }
+  .list div { padding: 6px 0; border-bottom: 1px solid #252525; font-size: 14px; }
+  .muted { color: #888; font-size: 12px; }
+  #log { white-space: pre-wrap; font-family: ui-monospace, monospace; font-size: 12px; color: #9fd; max-height: 180px; overflow: auto; }
+</style>
+</head>
+<body>
+<h1>Free Video Studio</h1>
+<div class="row">
+  <div class="card">
+    <h3>1. Project and media</h3>
+    <p><input id="project" value="demo" placeholder="project name"></p>
+    <p><input type="file" id="file" accept="video/*,audio/*,image/*"> <button onclick="upload()">Upload</button></p>
+    <p><button class="secondary" onclick="listAssets()">Refresh asset list</button></p>
+    <div class="list" id="assets"></div>
+  </div>
+
+  <div class="card">
+    <h3>2. Transcribe with Whisper (free, local)</h3>
+    <p><input id="transcribeAsset" placeholder="assets/your-video.mp4 (filename)"></p>
+    <p><button onclick="transcribe()">Transcribe</button>
+       <button class="secondary" onclick="captionsFromTranscript()">Use as captions</button></p>
+    <p class="muted">Whisper runs on your own machine. Captions are added to the timeline JSON on the right.</p>
+  </div>
+
+  <div class="card">
+    <h3>3. Free media (Openverse)</h3>
+    <p><input id="q" placeholder="search, e.g. ocean waves">
+       <select id="kind"><option value="images">images</option><option value="audio">audio</option></select>
+       <button onclick="searchOpenverse()">Search</button></p>
+    <div class="list" id="results"></div>
+    <p class="muted">Only CC0 / CC-BY / CC-BY-SA items. Credits are saved to credits.json.</p>
+  </div>
+
+  <div class="card">
+    <h3>4. Sound effects (earshot)</h3>
+    <p><input id="sfxName" placeholder="e.g. whoosh"> <button onclick="makeSfx()">Generate</button></p>
+    <p class="muted">Needs the earshot CLI installed. Set EARSHOT_CMD if its command differs.</p>
+  </div>
+
+  <div class="card">
+    <h3>5. Edit by prompt (AI)</h3>
+    <p><textarea id="aiPrompt" style="min-height:90px" placeholder="e.g. Trim to 8 seconds, add captions from the transcript, and fade the title in at 1s"></textarea></p>
+    <p><button onclick="aiEdit()">Apply prompt</button></p>
+    <p class="muted">Uses Ollama on this machine by default (free). Set AI_PROVIDER=gemini and GEMINI_API_KEY to use Google's free tier. The result goes into the timeline below for you to review before you render.</p>
+  </div>
+
+  <div class="card">
+    <h3>6. Generate clip (Higgsfield, optional, paid)</h3>
+    <p><textarea id="hfPrompt" style="min-height:70px" placeholder="Describe the clip, e.g. a slow drone shot over a misty forest at sunrise"></textarea></p>
+    <p><select id="hfDuration"><option>5</option><option>10</option></select> seconds
+       <select id="hfAspect"><option>16:9</option><option>9:16</option><option>1:1</option></select>
+       <select id="hfSound"><option value="off">no sound</option><option value="on">with sound</option></select></p>
+    <p><button onclick="hfGenerate()">Generate clip</button></p>
+    <p class="muted">Needs your own Higgsfield key (HIGGSFIELD_KEY_ID and HIGGSFIELD_KEY_SECRET). This is a paid service that charges your account. Generation can take several minutes. The app cannot show the cost before you run it.</p>
+  </div>
+
+  <div class="card" style="flex-basis:100%">
+    <h3>5. Timeline (JSON) and render</h3>
+    <textarea id="timeline">{
+  "width": 1920,
+  "height": 1080,
+  "duration": 10,
+  "quality": "standard",
+  "clips": [{"src": "assets/your-video.mp4", "start": 0, "duration": 10}],
+  "audio": [],
+  "captions": []
+}</textarea>
+    <p><button onclick="render()">Render MP4</button>
+       <span class="muted">Renders with Hyperframes. First run downloads its browser and may take a few minutes.</span></p>
+    <div id="log"></div>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const proj = () => encodeURIComponent($("project").value || "demo");
+const log = (msg) => { $("log").textContent += msg + "\n"; };
+
+async function call(path, opts) {
+  const r = await fetch(path, opts);
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+async function upload() {
+  const f = $("file").files[0];
+  if (!f) return log("Pick a file first.");
+  const fd = new FormData(); fd.append("file", f);
+  const r = await call(`/api/upload/${proj()}`, { method: "POST", body: fd });
+  log("Uploaded " + r.path);
+  listAssets();
+}
+
+async function listAssets() {
+  const names = await call(`/api/assets/${proj()}`);
+  $("assets").innerHTML = names.map(n => `<div>${n}</div>`).join("") || '<div class="muted">No assets yet.</div>';
+}
+
+async function transcribe() {
+  const asset = $("transcribeAsset").value.trim();
+  log("Transcribing " + asset + " (first run downloads the Whisper model)...");
+  try {
+    const r = await call(`/api/transcribe/${proj()}?asset=${encodeURIComponent(asset)}`, { method: "POST" });
+    window.lastSegments = r.segments;
+    log(`Done. Language: ${r.language}, ${r.segments.length} segments.`);
+  } catch (e) { log("Error: " + e.message); }
+}
+
+function captionsFromTranscript() {
+  if (!window.lastSegments) return log("Transcribe first.");
+  const t = JSON.parse($("timeline").value);
+  t.captions = window.lastSegments.map(s => ({ start: s.start, duration: Math.max(0.5, s.end - s.start), text: s.text }));
+  $("timeline").value = JSON.stringify(t, null, 2);
+  log(`Added ${t.captions.length} caption lines to the timeline.`);
+}
+
+async function searchOpenverse() {
+  const q = encodeURIComponent($("q").value), kind = $("kind").value;
+  const items = await call(`/api/openverse/${kind}?q=${q}`);
+  $("results").innerHTML = items.map((it, i) =>
+    `<div>${it.title || "untitled"} <span class="muted">by ${it.creator || "unknown"} · ${it.license}</span>
+     <button class="secondary" onclick='addOV(${i})'>Add</button></div>`).join("") || '<div class="muted">No results.</div>';
+  window.lastOV = items;
+}
+
+async function addOV(i) {
+  const it = window.lastOV[i];
+  const ext = (it.url.split(".").pop().split("?")[0]) || "bin";
+  const name = (it.title || "media").replace(/[^a-z0-9]+/gi, "-").slice(0, 40) + "." + ext;
+  const r = await call(`/api/fetch/${proj()}`, { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url: it.url, name, title: it.title, creator: it.creator, license: it.license, source_page: it.source_page }) });
+  log("Saved " + r.path + " (credit added)");
+  listAssets();
+}
+
+async function makeSfx() {
+  const name = $("sfxName").value.trim() || "whoosh";
+  try {
+    const r = await call(`/api/sfx/${proj()}`, { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }) });
+    log("Sound effects written to " + r.output_dir);
+  } catch (e) { log("earshot: " + e.message); }
+}
+
+async function render() {
+  let body;
+  try { body = JSON.parse($("timeline").value); } catch (e) { return log("Timeline JSON is invalid: " + e.message); }
+  log("Rendering... this can take several minutes.");
+  try {
+    const r = await call(`/api/render/${proj()}`, { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body) });
+    log("Finished: " + r.file);
+    window.open(r.file, "_blank");
+  } catch (e) { log("Render error:\n" + e.message); }
+}
+
+async function aiEdit() {
+  let timeline;
+  try { timeline = JSON.parse($("timeline").value); } catch (e) { return log("Timeline JSON is invalid: " + e.message); }
+  log("Asking the AI model...");
+  try {
+    const r = await call(`/api/ai/timeline/${proj()}`, { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt: $("aiPrompt").value, timeline }) });
+    $("timeline").value = JSON.stringify(r.timeline, null, 2);
+    log(`AI edit applied (${r.provider}). Review the timeline, then Render.`);
+    r.warnings.forEach(w => log("warning: " + w));
+  } catch (e) { log("AI error: " + e.message); }
+}
+
+async function hfGenerate() {
+  const prompt = $("hfPrompt").value.trim();
+  if (!prompt) return log("Write a prompt first.");
+  log("Generating with Higgsfield. This can take several minutes...");
+  try {
+    const r = await call(`/api/higgsfield/${proj()}`, { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt, duration: Number($("hfDuration").value), aspect_ratio: $("hfAspect").value, sound: $("hfSound").value }) });
+    log(`Clip saved: ${r.path} (request ${r.request_id}). Add it to the timeline JSON to use it.`);
+    listAssets();
+  } catch (e) { log("Higgsfield error: " + e.message); }
+}
+
+listAssets().catch(() => {});
+</script>
+</body>
+</html>
