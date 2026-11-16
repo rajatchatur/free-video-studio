@@ -142,3 +142,55 @@ Ubuntu notes:
 - The Whisper model downloads on first use, so the first transcription needs an internet connection.
 - To use Ollama for AI editing, install it from ollama.com, run `ollama pull qwen2.5:7b`, and keep `ollama serve` running in another terminal.
 - To start the studio again later, run only steps 5 and 6.
+
+## 13. Ubuntu quick commands (untested)
+
+Run these in a terminal inside the project folder. Replace `~/free-video-studio` with the folder where you unzipped or cloned the project.
+
+**Start the studio**
+```bash
+cd ~/free-video-studio
+source .venv/bin/activate
+export WHISPER_MODEL=base
+python server.py
+```
+Then open http://127.0.0.1:8000 in Firefox or Chrome.
+
+**Stop the studio**
+Press `Ctrl+C` in the terminal where it is running.
+
+**Start the optional Ollama AI (for prompt editing)**
+Open a second terminal and run:
+```bash
+ollama serve
+```
+Leave it running. In the first terminal, start the studio as above.
+
+**Check that Ollama has the model**
+```bash
+ollama list
+```
+If `qwen2.5:7b` is missing, run `ollama pull qwen2.5:7b`.
+
+**Make a video, step by step in the browser**
+1. Enter a project name and upload a clip.
+2. Transcribe it, then click **Use as captions** (optional).
+3. Type a request in panel 5, such as `trim to 8 seconds and add captions`, and let the AI update the timeline. Check the JSON.
+4. Click **Render MP4**.
+5. Find the video in `projects/<your-project>/renders/`:
+   ```bash
+   ls ~/free-video-studio/projects/<your-project>/renders/
+   ```
+
+**Set a Higgsfield key (optional, paid)**
+Set the keys in the terminal before starting the studio:
+```bash
+export HIGGSFIELD_KEY_ID="your-id"
+export HIGGSFIELD_KEY_SECRET="your-secret"
+```
+
+**Use Gemini instead of Ollama (optional, free tier)**
+```bash
+export AI_PROVIDER=gemini
+export GEMINI_API_KEY="your-key"
+```
