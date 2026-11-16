@@ -102,3 +102,43 @@ Render time depends on your computer. A 30-second 1080p video can take several m
 
 - This guide follows the project README. The project has not been tested end to end, so run a short test project first and report any errors.
 - Keep your API keys out of the project files. Set them as environment variables only.
+
+## 12. Ubuntu setup (22.04 or 24.04, untested)
+
+The project includes setup scripts for macOS and Windows only. These are the manual steps for Ubuntu. I haven't run them on Ubuntu, so report any error you see.
+
+1. Install the system packages:
+   ```bash
+   sudo apt update
+   sudo apt install -y ffmpeg git python3.12 python3.12-venv
+   ```
+   On Ubuntu 22.04, `python3.12` may not be in the default repositories. Add the deadsnakes PPA first: `sudo add-apt-repository ppa:deadsnakes/ppa && sudo apt update`.
+2. Install Node.js 22 LTS. Use NodeSource, or any method that gives Node 22 or newer:
+   ```bash
+   curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+   sudo apt install -y nodejs
+   ```
+3. Open a terminal in the project folder and create the Python environment:
+   ```bash
+   python3.12 -m venv .venv
+   source .venv/bin/activate
+   pip install --upgrade pip
+   pip install -r requirements.txt
+   ```
+4. Install the Hyperframes skills (free):
+   ```bash
+   npx --yes hyperframes doctor || true
+   npx skills add heygen-com/hyperframes
+   ```
+5. Start the studio:
+   ```bash
+   source .venv/bin/activate
+   export WHISPER_MODEL=base
+   python server.py
+   ```
+6. Open http://127.0.0.1:8000 in your browser and keep the terminal open.
+
+Ubuntu notes:
+- The Whisper model downloads on first use, so the first transcription needs an internet connection.
+- To use Ollama for AI editing, install it from ollama.com, run `ollama pull qwen2.5:7b`, and keep `ollama serve` running in another terminal.
+- To start the studio again later, run only steps 5 and 6.
