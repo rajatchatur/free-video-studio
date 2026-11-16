@@ -24,12 +24,52 @@ Not verified: I could not find a GitHub repo called "realsfx", and I could not c
 | Captions | Whisper `base` (fast) or `small` (better) | CPU, both platforms | Set with `WHISPER_MODEL` |
 | Voiceover | Kokoro-82M (Apache 2.0) | CPU | Used by the `hyperframes-media` skill |
 | Background removal | u2net | CPU | Used by the `hyperframes-media` skill |
-| Scripting and captions text, local | Qwen2.5 7B or Llama 3.2 3B via Ollama | M1 16 GB or a PC with 16 GB RAM | Free, offline, `ollama pull qwen2.5:7b` |
+| Prompt editing, local | Qwen2.5 3B (8 GB RAM, default) or Qwen2.5 7B (16 GB RAM) via Ollama | 8 GB RAM is enough for 3B | Free, offline, `ollama pull qwen2.5:3b` |
 | Free hosted tokens (optional) | Google AI Studio (Gemini free tier), Groq free tier, OpenRouter `:free` models, Hugging Face Inference free credits | Cloud | Limits change often. Check each site before you rely on one |
 
 Free-tier limits and model names change. Re-check the sites above before you depend on them.
 
-## Setup on macOS (M1 or later)
+## Docker setup (any OS, recommended)
+
+Docker runs the whole studio in a ready-made box: Python, FFmpeg, Node.js, the speech model and the free AI model. The same steps work on Windows 10/11, macOS (Intel or Apple Silicon) and Ubuntu. Docker is untested in this repository so far, so please report any error.
+
+**Requirements**
+- Windows 10/11 Home or Pro: install Docker Desktop (docker.com). It uses WSL 2, which the installer sets up.
+- macOS: install Docker Desktop.
+- Ubuntu: install Docker Engine and the Compose plugin (`sudo apt install docker.io docker-compose-v2`), then add your user to the docker group: `sudo usermod -aG docker $USER` and log out and back in.
+- At least 8 GB RAM. In Docker Desktop, set Memory to at least 6 GB (Settings > Resources).
+- About 10 GB of free disk space for the images and models.
+
+**Steps**
+1. Get the project (download the ZIP from GitHub, or `git clone`).
+2. Open a terminal in the project folder.
+3. Copy the settings file: `cp .env.example .env` (Windows PowerShell: `copy .env.example .env`). Leave the defaults unless you want Gemini or Higgsfield.
+4. Start everything:
+   ```bash
+   docker compose up -d --build
+   ```
+   The first run downloads the images and the AI model (about 2 GB for the default). It can take 10 to 30 minutes.
+5. Open http://127.0.0.1:8000 in your browser.
+6. To stop: `docker compose down`. To start again later: `docker compose up -d` (no rebuild needed).
+
+Your projects are saved in the `projects` folder on your computer. The AI model is kept in a Docker volume, so it is downloaded only once.
+
+**Choosing the AI model by RAM** (set `OLLAMA_MODEL` in `.env`)
+
+| Your RAM | Model | Download | Notes |
+|---|---|---|---|
+| 8 GB | `qwen2.5:3b` (default) | about 2 GB | Best fit for 8 GB. Good enough for simple prompts. |
+| 16 GB | `qwen2.5:7b` | about 5 GB | Better timeline edits. Close other large apps first. |
+| 32 GB or more | `qwen2.5:14b` | about 9 GB | Most accurate. Slow on CPU. |
+
+Speech model (`WHISPER_MODEL` in `.env`): `base` is recommended for 8 GB. `small` is more accurate but slower and uses more memory.
+
+Other notes:
+- The Docker image runs on the CPU. It does not use an Apple Silicon or NVIDIA GPU, so renders are slower than a native install.
+- The earshot sound effects and the Hyperframes skill installer are not included in the Docker image. Use the native setup below if you need them.
+- To use Gemini instead of the local model, set `AI_PROVIDER=gemini` and `GEMINI_API_KEY` in `.env`, then run `docker compose up -d`.
+
+## Setup on macOS (M1 or later, without Docker)
 
 1. Open Terminal and install Xcode Command Line Tools if asked: `xcode-select --install`
 2. Unzip the project and open Terminal inside the folder.
@@ -67,7 +107,7 @@ Apple Silicon notes: faster-whisper runs on the CPU, which is fast enough for `b
 Panel 5 takes a plain-language request, such as "trim to 8 seconds and add captions from the transcript". The app sends the request, the current timeline, the asset list and any transcript to a model, and writes the updated timeline back into the editor. You review it, then click Render.
 
 Free options:
-- **Ollama (default, local, offline)**: install from ollama.com, then run `ollama pull qwen2.5:7b`. Ollama must be running (`ollama serve`). Use `OLLAMA_MODEL` to change the model.
+- **Ollama (default, local, offline)**: install from ollama.com, then run `ollama pull qwen2.5:3b` (8 GB RAM) or `ollama pull qwen2.5:7b` (16 GB RAM). Ollama must be running (`ollama serve`). Use `OLLAMA_MODEL` to change the model. With Docker this is done for you (see Docker setup).
 - **Gemini (free tier, cloud)**: create a key in Google AI Studio, then set `AI_PROVIDER=gemini` and `GEMINI_API_KEY=...`. Optionally set `GEMINI_MODEL`. Free-tier limits change, so check the site.
 
 On Windows, set the variables in PowerShell before running, for example `$env:AI_PROVIDER="gemini"; $env:GEMINI_API_KEY="..."`. On macOS, use `export` in Terminal, or add the lines to `scripts/run_mac.sh`.
