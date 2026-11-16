@@ -2,11 +2,38 @@
 
 Free Video Studio is a local video editor. It runs on your own computer, on Windows 10/11 or a MacBook with M1/M2/M3, and you open it in a browser at http://127.0.0.1:8000. No paid account or credit card is needed, except for the optional Higgsfield clip generator.
 
-## 1. Before you start
+## 0. Quick start with Docker (any OS, recommended)
+
+Docker installs everything for you: FFmpeg, Python, Node.js, the speech model and the free AI model (Ollama). The steps are the same on Windows, Mac and Ubuntu.
+
+1. Install Docker Desktop (Windows and Mac) or Docker Engine with the Compose plugin (Ubuntu). Start it and wait until it says it is running.
+2. In Docker Desktop, set Memory to at least 6 GB (Settings > Resources). Your computer should have 8 GB RAM or more.
+3. Open a terminal in the project folder and run:
+   ```bash
+   cp .env.example .env
+   docker compose up -d --build
+   ```
+   On Windows PowerShell, use `copy .env.example .env` instead of `cp`.
+4. Wait for the first run to finish. It downloads the AI model (about 2 GB) and the speech model. This can take 10 to 30 minutes, once.
+5. Open http://127.0.0.1:8000 in your browser.
+6. Use the studio as described in sections 3 to 9. Your files are in the `projects` folder.
+7. To stop it, run `docker compose down`. To start it again, run `docker compose up -d`.
+
+To check that the AI model is ready, run `docker compose logs ollama-pull`. The last line should say `success`.
+
+To change the AI model, edit `OLLAMA_MODEL` in `.env`, then run `docker compose up -d`:
+- 8 GB RAM: `qwen2.5:3b` (default)
+- 16 GB RAM: `qwen2.5:7b`
+- 32 GB RAM or more: `qwen2.5:14b`
+
+If Docker runs out of memory or the AI step fails, raise Docker Desktop's memory limit to 6 GB or more, or switch to a smaller model.
+
+## 1. Before you start (without Docker)
 
 - Windows: run `scripts\setup_windows.ps1` once. Run it a second time after the first run finishes, so the Python and skill steps complete. See the README for the exact commands.
 - macOS: run `scripts/setup_mac.sh` once.
-- Optional AI editing: install Ollama from ollama.com and run `ollama pull qwen2.5:7b`. Or get a free Gemini key from Google AI Studio.
+- Recommended: Docker (section 0), which installs Ollama and the AI model for you.
+- Without Docker: install Ollama from ollama.com and run `ollama pull qwen2.5:3b` (8 GB RAM). Or get a free Gemini key from Google AI Studio.
 
 ## 2. Start the studio
 
@@ -140,7 +167,7 @@ The project includes setup scripts for macOS and Windows only. These are the man
 
 Ubuntu notes:
 - The Whisper model downloads on first use, so the first transcription needs an internet connection.
-- To use Ollama for AI editing, install it from ollama.com, run `ollama pull qwen2.5:7b`, and keep `ollama serve` running in another terminal.
+- To use Ollama for AI editing, install it from ollama.com, run `ollama pull qwen2.5:3b`, and keep `ollama serve` running in another terminal. On 16 GB RAM you can use `qwen2.5:7b` instead.
 - To start the studio again later, run only steps 5 and 6.
 
 ## 13. Ubuntu quick commands (untested)
@@ -170,7 +197,7 @@ Leave it running. In the first terminal, start the studio as above.
 ```bash
 ollama list
 ```
-If `qwen2.5:7b` is missing, run `ollama pull qwen2.5:7b`.
+If `qwen2.5:3b` is missing, run `ollama pull qwen2.5:3b`.
 
 **Make a video, step by step in the browser**
 1. Enter a project name and upload a clip.

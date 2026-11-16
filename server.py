@@ -228,7 +228,7 @@ def _call_ollama(system: str, user: str) -> str:
     r = httpx.post(
         f"{base}/api/chat",
         json={
-            "model": os.environ.get("OLLAMA_MODEL", "qwen2.5:7b"),
+            "model": os.environ.get("OLLAMA_MODEL", "qwen2.5:3b"),
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
             "format": "json",
             "stream": False,
@@ -392,4 +392,5 @@ def higgsfield_generate(project: str, body: dict):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    # HOST=0.0.0.0 is needed inside Docker; the default keeps the studio local-only.
+    uvicorn.run(app, host=os.environ.get("HOST", "127.0.0.1"), port=int(os.environ.get("PORT", "8000")))
